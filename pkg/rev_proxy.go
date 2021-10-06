@@ -47,7 +47,8 @@ func ReverseProxy() {
 
 	svc := GatewayService{
 		RegisteredPlugins: []interfaces.GenericGatewayPlugin{
-			plugins.OIDCPlugin{},
+			&plugins.OIDCPlugin{},
+			plugins.TenantsPlugin{},
 		},
 	}
 
@@ -62,8 +63,11 @@ func ReverseProxy() {
 		panic(err)
 	}
 	svc.RevProxy = proxy
-	svc.Init()
+	err = svc.Init()
+	if err != nil {
+		log.Fatal(err)
 
+	}
 	http.HandleFunc("/", svc.ProxyDispatcher(svc.RevProxy))
 	log.Fatal(http.ListenAndServe(":8080", nil))
 
