@@ -1,9 +1,10 @@
 package plugins
 
 import (
-	"errors"
 	"net/http"
 	"poc-gateway/pkg/interfaces"
+
+	errors "poc-gateway/pkg/errors"
 
 	"github.com/MicahParks/keyfunc"
 	jwt "github.com/golang-jwt/jwt/v4"
@@ -19,13 +20,13 @@ type OIDCPlugin struct {
 const prefixTokenValue string = "Bearer "
 const prefixTokenType int = len(prefixTokenValue)
 
-func (p OIDCPlugin) Process(req *http.Request) (int, error) {
+func (p OIDCPlugin) Process(req *http.Request) *errors.GeneralError {
 	rawToken := req.Header.Get("Authorization")
 
 	// Verify if the prefixTokenValue is present in the header
 	if len(rawToken) < prefixTokenType ||
 		rawToken[:prefixTokenType] != prefixTokenValue {
-		return 400, errors.New("unknown token type")
+		return errors.Error(errors.ErrValidationError, "unknown token type")
 	}
 
 	// Skip the token prefix
@@ -35,23 +36,23 @@ func (p OIDCPlugin) Process(req *http.Request) (int, error) {
 	// (including token exp)
 	parsedToken, err := jwt.Parse(rawToken, p.JWKs.Keyfunc)
 	if err != nil {
-		return 400, err
+		return errors.Error(errors.ErrValidationError, err.Error())
 	}
 
 	// Get JWT "aud" field
 	audience, ok := parsedToken.Claims.(jwt.MapClaims)["aud"]
 	if !ok {
-		return 400, err
+		return errors.Error(errors.ErrValidationError, err.Error())
 	}
 	// Verifies if it match one of the allowed auds
 	for _, aud := range p.AllowedAuds {
 		if audience == aud {
-			return 200, nil
+			return nil
 		}
 	}
 
 	// Didn't matched any allowed aud
-	return 400, err
+	return errors.Error(errors.ErrPermissionDenied, err.Error())
 }
 
 func (p *OIDCPlugin) Setup() error {

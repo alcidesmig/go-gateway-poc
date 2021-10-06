@@ -1,9 +1,10 @@
 package plugins
 
 import (
-	"errors"
 	"net/http"
 	"poc-gateway/pkg/interfaces"
+
+	errors "poc-gateway/pkg/errors"
 
 	jwt "github.com/dgrijalva/jwt-go"
 )
@@ -27,13 +28,13 @@ type MagaluToken struct {
 
 const prefixTokenTypeBearer int = len("Bearer ")
 
-func (p TenantsPlugin) Process(req *http.Request) (int, error) {
+func (p TenantsPlugin) Process(req *http.Request) *errors.GeneralError {
 	rawToken := req.Header.Get("Authorization")
 	specifiedTenant := req.Header.Get("x-tenant-id")
 
 	// Verify if one x-tenant-id header was sent
 	if specifiedTenant == "" {
-		return 400, errors.New("one tenant id header need to be specified using x-tenant-id header")
+		return errors.Error(errors.ErrValidationError, "one tenant id header need to be specified using x-tenant-id header")
 	}
 
 	// Assume one well formed JWT in Authorization header after "Bearer" prefix
@@ -43,7 +44,7 @@ func (p TenantsPlugin) Process(req *http.Request) (int, error) {
 	// Parse the JWK without verifying it
 	processedToken, _, err := new(jwt.Parser).ParseUnverified(rawToken, &MagaluToken{})
 	if err != nil {
-		return 400, errors.New("invalid token")
+		return errors.Error(errors.ErrValidationError, "invalid token")
 	}
 	// Cast to MagaluToken
 	parsedToken := processedToken.Claims.(*MagaluToken)
@@ -59,13 +60,13 @@ func (p TenantsPlugin) Process(req *http.Request) (int, error) {
 			// Insert new headers for the back-end
 			req.Header.Add("x-tenant-internal-id", tenant.InternalID)
 			req.Header.Add("x-tenant-type", tenant.Type)
-			return 200, nil
+			return nil
 		}
 	}
 
 	// All the existent tenants in the JWT were checked
 	// and none of them is valid
-	return 403, errors.New("you don't have access to the specified tenant")
+	return errors.Error(errors.ErrPermissionDenied, "you don't have access to the specified tenant")
 }
 
 func (p TenantsPlugin) Setup() error {

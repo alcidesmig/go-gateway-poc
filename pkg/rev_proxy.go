@@ -20,9 +20,9 @@ type GatewayService struct {
 func (g GatewayService) ProxyDispatcher(proxy *httputil.ReverseProxy) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		for _, plugin := range g.RegisteredPlugins {
-			if code, err := plugin.Process(r); err != nil {
-				w.WriteHeader(code)
-				w.Write([]byte(err.Error()))
+			if err := plugin.Process(r); err != nil {
+				w.WriteHeader(err.StatusCode)
+				w.Write(err.JSON())
 				return
 			}
 		}

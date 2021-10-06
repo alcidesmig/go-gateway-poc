@@ -2,6 +2,7 @@ package plugins
 
 import (
 	"net/http"
+	errors "poc-gateway/pkg/errors"
 	"poc-gateway/pkg/interfaces"
 	"strings"
 )
@@ -11,7 +12,7 @@ type HeaderCleanerPlugin struct {
 	AllowedHeaders []string
 }
 
-func (p HeaderCleanerPlugin) Process(req *http.Request) (int, error) {
+func (p HeaderCleanerPlugin) Process(req *http.Request) *errors.GeneralError {
 
 	// Iterate over existent headers comparing
 	// with allowed headers, excluding those who
@@ -26,7 +27,7 @@ RangeHeaders:
 		}
 		req.Header.Del(header)
 	}
-	return 200, nil
+	return nil
 }
 
 func (p *HeaderCleanerPlugin) Setup() error {
