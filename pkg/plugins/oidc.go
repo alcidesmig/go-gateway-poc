@@ -11,7 +11,9 @@ import (
 
 type OIDCPlugin struct {
 	interfaces.GenericGatewayPlugin
-	JWKs *keyfunc.JWKs
+	JWKs        *keyfunc.JWKs
+	IDPUrl      string
+	AllowedAuds []string
 }
 
 const prefixTokenValue string = "Bearer "
@@ -30,15 +32,30 @@ func (p OIDCPlugin) Process(req *http.Request) (int, error) {
 	rawToken = rawToken[prefixTokenType:]
 
 	// Parse and validate the JWT
-	_, err := jwt.Parse(rawToken, p.JWKs.Keyfunc)
+	// (including token exp)
+	parsedToken, err := jwt.Parse(rawToken, p.JWKs.Keyfunc)
 	if err != nil {
 		return 400, err
 	}
-	return 200, nil
+
+	// Get JWT "aud" field
+	audience, ok := parsedToken.Claims.(jwt.MapClaims)["aud"]
+	if !ok {
+		return 400, err
+	}
+	// Verifies if it match one of the allowed auds
+	for _, aud := range p.AllowedAuds {
+		if audience == aud {
+			return 200, nil
+		}
+	}
+
+	// Didn't matched any allowed aud
+	return 400, err
 }
 
 func (p *OIDCPlugin) Setup() error {
-	jwks, err := keyfunc.Get("https://id.magalu.com/oauth/certs", keyfunc.Options{
+	jwks, err := keyfunc.Get(p.IDPUrl, keyfunc.Options{
 		Client: &http.Client{
 			// 0 timeout => no timeout
 			Timeout: 0,

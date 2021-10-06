@@ -26,6 +26,7 @@ func (g GatewayService) ProxyDispatcher(proxy *httputil.ReverseProxy) func(http.
 				return
 			}
 		}
+		proxy.Transport = &TransportLayer{}
 		proxy.Director = func(req *http.Request) {
 			req.URL.Scheme = g.TargetURL.Scheme
 			req.URL.Host = g.TargetURL.Host
@@ -47,7 +48,17 @@ func ReverseProxy() {
 
 	svc := GatewayService{
 		RegisteredPlugins: []interfaces.GenericGatewayPlugin{
-			&plugins.OIDCPlugin{},
+			&plugins.OIDCPlugin{
+				IDPUrl:      "https://id.magalu.com/oauth/certs",
+				AllowedAuds: []string{"public"},
+			},
+			&plugins.HeaderCleanerPlugin{
+				AllowedHeaders: []string{"Access-Control-Allow-Headers", "Access-Control-Allow-Methods",
+					"Access-Control-Max-Age", "Access-Control-Request-Method",
+					"Access-Control-Allow-Credentials", "Access-Control-Allow-Origin",
+					"Origin", "content-type", "date", "x-api-key",
+					"x-tenant-id", "authorization"},
+			},
 			plugins.TenantsPlugin{},
 		},
 	}
